@@ -1,0 +1,233 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  STAFF
+  USER
+}
+
+model User {
+  id            String         @id @default(uuid())
+  name          String
+  email         String         @unique
+  password      String
+  role          Role           @default(USER)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  orders        Order[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+model Category {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  media     Media[]
+  createdAt DateTime @default(now())
+
+  @@map("categories")
+}
+
+model Media {
+  id         String      @id @default(uuid())
+  logo       String
+  name       String
+  domain     String
+  categoryId String
+  category   Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  da         Int
+  dr         Int
+  traffic    Int
+  price      Float
+  status     String      @default("ACTIVE") // ACTIVE, INACTIVE
+  notes      String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  packages   Package[]   @relation("PackageMedia")
+  orderItems OrderItem[]
+
+  @@map("media")
+}
+
+model Package {
+  id          String      @id @default(uuid())
+  name        String
+  description String
+  price       Float
+  discount    Float       @default(0) // percentage or nominal discount
+  status      String      @default("ACTIVE") // ACTIVE, INACTIVE
+  media       Media[]     @relation("PackageMedia")
+  orderItems  OrderItem[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@map("packages")
+}
+
+model Voucher {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  type      String   // PERCENT, NOMINAL
+  value     Float
+  minSpend  Float    @default(0)
+  expiredAt DateTime
+  status    String   @default("ACTIVE") // ACTIVE, INACTIVE
+  createdAt DateTime @default(now())
+
+  @@map("vouchers")
+}
+
+model Customer {
+  id          String   @id @default(uuid())
+  name        String
+  email       String   @unique
+  whatsapp    String
+  totalOrders Int      @default(0)
+  totalSpend  Float    @default(0)
+  orders      Order[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("customers")
+}
+
+model Order {
+  id              String      @id @default(uuid())
+  customerId      String
+  customer        Customer    @relation(fields: [customerId], references: [id])
+  userId          String?
+  user            User?       @relation(fields: [userId], references: [id])
+  brandName       String
+  anchorText      String
+  url             String
+  articlePath     String?     // Uploaded file path
+  notes           String?
+  status          String      @default("PENDING") // PENDING, PAID, PROCESSING, PUBLISHED, COMPLETED, CANCELLED
+  paymentMethod   String      // BANK_TRANSFER, QRIS, MIDTRANS
+  subtotal        Float
+  discount        Float       @default(0)
+  total           Float
+  proofPath       String?     // Payment proof upload path
+  publishProofUrl String?     // Completed PR URL
+  publishProofPdf String?     // Completed PR PDF report
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  items           OrderItem[]
+  payment         Payment?
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id         String    @id @default(uuid())
+  orderId    String
+  order      Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  mediaId    String?
+  media      Media?    @relation(fields: [mediaId], references: [id])
+  packageId  String?
+  package    Package?  @relation(fields: [packageId], references: [id])
+  backlinkId String?
+  backlink   Backlink? @relation(fields: [backlinkId], references: [id])
+  price      Float
+
+  @@map("order_items")
+}
+
+model Backlink {
+  id         String      @id @default(uuid())
+  logo       String
+  name       String
+  domain     String
+  da         Int
+  dr         Int
+  traffic    Int
+  price      Float
+  status     String      @default("ACTIVE") // ACTIVE, INACTIVE
+  notes      String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  orderItems OrderItem[]
+
+  @@map("backlinks")
+}
+
+model Payment {
+  id        String    @id @default(uuid())
+  orderId   String    @unique
+  order     Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amount    Float
+  method    String
+  proofPath String?
+  status    String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  paidAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@map("payments")
+}
+
+model Setting {
+  id    String @id @default(uuid())
+  key   String @unique
+  value String
+
+  @@map("settings")
+}
+
+model Testimonial {
+  id        String   @id @default(uuid())
+  name      String
+  company   String
+  avatar    String
+  content   String
+  rating    Int      @default(5)
+  createdAt DateTime @default(now())
+
+  @@map("testimonials")
+}
+
+model Faq {
+  id        String   @id @default(uuid())
+  question  String
+  answer    String
+  createdAt DateTime @default(now())
+
+  @@map("faq")
+}
+
+model Blog {
+  id        String   @id @default(uuid())
+  title     String
+  slug      String   @unique
+  summary   String
+  content   String   // Markdown or HTML
+  thumbnail String
+  category  String
+  seoTitle  String?
+  seoDesc   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("blog")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
+}

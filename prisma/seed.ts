@@ -1,220 +1,159 @@
 import { PrismaClient } from '@prisma/client';
-
-// Note: To avoid dependency issues on typescript running, we'll implement simple hashing or a standard bcrypt package.
-// If bcrypt is not fully installed, we'll use a simple hash. But since we want it to be secure, let's use standard bcrypt.
-// Wait, we can use a helper or crypto.createHash for simple password hashing in NextAuth/seeding so that we don't depend on native bcrypt compile issues.
-// Let's use SHA-256 for passwords in the seed and the NextAuth provider. It avoids compiled native bcrypt node_modules compilation errors on Windows!
-// Let's implement SHA-256 password hashing.
-import { createHash } from 'crypto';
-
-function hashPassword(password: string) {
-  return createHash('sha256').update(password).digest('hex');
-}
+// App auth (src/lib/auth.ts) verifies with bcrypt — seed must hash the same way.
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Seeding database...');
+  console.log('Seeding database (idempotent upserts)...');
 
-  // 1. Clear existing data
-  await prisma.notification.deleteMany();
-  await prisma.payment.deleteMany();
-  await prisma.orderItem.deleteMany();
-  await prisma.order.deleteMany();
-  await prisma.customer.deleteMany();
-  await prisma.backlink.deleteMany();
-  await prisma.voucher.deleteMany();
-  await prisma.setting.deleteMany();
-  await prisma.faq.deleteMany();
-  await prisma.testimonial.deleteMany();
-  await prisma.blog.deleteMany();
-  await prisma.user.deleteMany();
-  await prisma.package.deleteMany();
-  await prisma.media.deleteMany();
-  await prisma.category.deleteMany();
-
-  console.log('Cleared existing tables.');
-
-  // 2. Create Users
-  const superAdminPassword = hashPassword('admin123');
-  const staffPassword = hashPassword('staff123');
-  const userPassword = hashPassword('user123');
-
-  const superAdmin = await prisma.user.create({
-    data: {
+  // 1. Users — credentials overridable via env for deploys (defaults are demo).
+  const users = [
+    {
+      email: process.env.SEED_SUPERADMIN_EMAIL ?? 'admin@axiompr.com',
       name: 'Super Admin',
-      email: 'admin@axiompr.com',
-      password: superAdminPassword,
-      role: 'SUPER_ADMIN',
+      password: await bcrypt.hash(process.env.SEED_SUPERADMIN_PASSWORD ?? 'admin123', 10),
+      role: 'SUPER_ADMIN' as const,
     },
-  });
-
-  const staff = await prisma.user.create({
-    data: {
+    {
+      email: process.env.SEED_STAFF_EMAIL ?? 'staff@prdist.com',
       name: 'Staff PR',
-      email: 'staff@prdist.com',
-      password: staffPassword,
-      role: 'STAFF',
+      password: await bcrypt.hash(process.env.SEED_STAFF_PASSWORD ?? 'staff123', 10),
+      role: 'STAFF' as const,
     },
-  });
-
-  const user = await prisma.user.create({
-    data: {
+    {
+      email: process.env.SEED_USER_EMAIL ?? 'budi@gmail.com',
       name: 'Budi Santoso',
-      email: 'budi@gmail.com',
-      password: userPassword,
-      role: 'USER',
+      password: await bcrypt.hash(process.env.SEED_USER_PASSWORD ?? 'user123', 10),
+      role: 'USER' as const,
     },
-  });
-
-  console.log('Created Users:', { superAdmin: superAdmin.email, staff: staff.email, user: user.email });
-
-  // 3. Create Categories
-  const catNews = await prisma.category.create({ data: { name: 'Nasional & Berita', slug: 'nasional-berita' } });
-  const catTech = await prisma.category.create({ data: { name: 'Teknologi & Gadget', slug: 'teknologi-gadget' } });
-  const catBiz = await prisma.category.create({ data: { name: 'Bisnis & Keuangan', slug: 'bisnis-keuangan' } });
-  const catEnt = await prisma.category.create({ data: { name: 'Hiburan & Gaya Hidup', slug: 'hiburan-gaya-hidup' } });
-
-  console.log('Created Categories');
-
-  // 4. Create Media
-  const mediaItems = [
-    { name: 'Detik.com', domain: 'detik.com', categoryId: catNews.id, da: 89, dr: 86, traffic: 12000000, price: 3500000, logo: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=80&auto=format&fit=crop&q=60' },
-    { name: 'Kompas.com', domain: 'kompas.com', categoryId: catNews.id, da: 91, dr: 88, traffic: 15000000, price: 4000000, logo: 'https://images.unsplash.com/photo-1618005198143-e5283b519a7f?w=80&auto=format&fit=crop&q=60' },
-    { name: 'CNN Indonesia', domain: 'cnnindonesia.com', categoryId: catNews.id, da: 86, dr: 83, traffic: 8000000, price: 4500000, logo: 'https://images.unsplash.com/photo-1618005131379-67d0f918e95d?w=80&auto=format&fit=crop&q=60' },
-    { name: 'Liputan6.com', domain: 'liputan6.com', categoryId: catNews.id, da: 85, dr: 82, traffic: 7000000, price: 3000000, logo: 'https://images.unsplash.com/photo-1618005106198-d10103e0cd5e?w=80&auto=format&fit=crop&q=60' },
-    { name: 'Tribunnews', domain: 'tribunnews.com', categoryId: catNews.id, da: 88, dr: 85, traffic: 20000000, price: 2500000, logo: 'https://images.unsplash.com/photo-1618005156198-d10103e0cd5e?w=80&auto=format&fit=crop&q=60' },
-    
-    { name: 'Tech in Asia ID', domain: 'id.techinasia.com', categoryId: catTech.id, da: 78, dr: 76, traffic: 1500000, price: 2800000, logo: 'https://images.unsplash.com/photo-1618005128143-e5283b519a7f?w=80&auto=format&fit=crop&q=60' },
-    { name: 'DailySocial', domain: 'dailysocial.id', categoryId: catTech.id, da: 72, dr: 70, traffic: 800000, price: 1800000, logo: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=80&auto=format&fit=crop&q=60' },
-    { name: 'InfoKomputer', domain: 'infokomputer.grid.id', categoryId: catTech.id, da: 65, dr: 63, traffic: 300000, price: 1200000, logo: 'https://images.unsplash.com/photo-1618005131379-67d0f918e95d?w=80&auto=format&fit=crop&q=60' },
-    
-    { name: 'Kontan.co.id', domain: 'kontan.co.id', categoryId: catBiz.id, da: 81, dr: 79, traffic: 4000000, price: 3200000, logo: 'https://images.unsplash.com/photo-1618005198143-e5283b519a7f?w=80&auto=format&fit=crop&q=60' },
-    { name: 'Bisnis.com', domain: 'bisnis.com', categoryId: catBiz.id, da: 83, dr: 81, traffic: 5000000, price: 3500000, logo: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=80&auto=format&fit=crop&q=60' },
-    { name: 'Sindonews', domain: 'sindonews.com', categoryId: catBiz.id, da: 84, dr: 82, traffic: 6000000, price: 2200000, logo: 'https://images.unsplash.com/photo-1618005131379-67d0f918e95d?w=80&auto=format&fit=crop&q=60' },
-
-    { name: 'KapanLagi.com', domain: 'kapanlagi.com', categoryId: catEnt.id, da: 82, dr: 80, traffic: 9000000, price: 2600000, logo: 'https://images.unsplash.com/photo-1618005156198-d10103e0cd5e?w=80&auto=format&fit=crop&q=60' },
-    { name: 'Fimela.com', domain: 'fimela.com', categoryId: catEnt.id, da: 79, dr: 77, traffic: 3500000, price: 2400000, logo: 'https://images.unsplash.com/photo-1618005198143-e5283b519a7f?w=80&auto=format&fit=crop&q=60' },
-    { name: 'Volix Media', domain: 'volix.co', categoryId: catEnt.id, da: 45, dr: 40, traffic: 150000, price: 1500000, logo: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=80&auto=format&fit=crop&q=60' },
   ];
 
-  const dbMedia = [];
-  for (const m of mediaItems) {
-    const item = await prisma.media.create({
-      data: m,
+  for (const u of users) {
+    await prisma.user.upsert({
+      where: { email: u.email },
+      update: { name: u.name, password: u.password, role: u.role },
+      create: u,
     });
-    dbMedia.push(item);
   }
+  const user = await prisma.user.findUniqueOrThrow({ where: { email: users[2].email } });
+  console.log('Upserted Users:', users.map((u) => u.email).join(', '));
 
-  console.log(`Created ${dbMedia.length} Media items.`);
+  // 2. Categories (unique: slug)
+  const categories = [
+    { slug: 'nasional-berita', name: 'Nasional & Berita' },
+    { slug: 'teknologi-gadget', name: 'Teknologi & Gadget' },
+    { slug: 'bisnis-keuangan', name: 'Bisnis & Keuangan' },
+    { slug: 'hiburan-gaya-hidup', name: 'Hiburan & Gaya Hidup' },
+  ];
+  for (const c of categories) {
+    await prisma.category.upsert({ where: { slug: c.slug }, update: { name: c.name }, create: c });
+  }
+  const catBySlug = Object.fromEntries(
+    (await prisma.category.findMany()).map((c) => [c.slug, c.id])
+  );
+  console.log('Upserted Categories');
 
-  // 5. Create Packages
-  // Starter Package: 3 media
-  const starterMedia = dbMedia.slice(4, 7);
-  const starterPrice = 5000000;
-  await prisma.package.create({
-    data: {
-      name: 'Starter Package',
+  // 3. Media (no natural unique key — use domain as deterministic id)
+  const mediaItems = [
+    { name: 'Detik.com', domain: 'detik.com', categorySlug: 'nasional-berita', da: 89, dr: 86, traffic: 12000000, price: 3500000, logo: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=80&auto=format&fit=crop&q=60' },
+    { name: 'Kompas.com', domain: 'kompas.com', categorySlug: 'nasional-berita', da: 91, dr: 88, traffic: 15000000, price: 4000000, logo: 'https://images.unsplash.com/photo-1618005198143-e5283b519a7f?w=80&auto=format&fit=crop&q=60' },
+    { name: 'CNN Indonesia', domain: 'cnnindonesia.com', categorySlug: 'nasional-berita', da: 86, dr: 83, traffic: 8000000, price: 4500000, logo: 'https://images.unsplash.com/photo-1618005131379-67d0f918e95d?w=80&auto=format&fit=crop&q=60' },
+    { name: 'Liputan6.com', domain: 'liputan6.com', categorySlug: 'nasional-berita', da: 85, dr: 82, traffic: 7000000, price: 3000000, logo: 'https://images.unsplash.com/photo-1618005106198-d10103e0cd5e?w=80&auto=format&fit=crop&q=60' },
+    { name: 'Tribunnews', domain: 'tribunnews.com', categorySlug: 'nasional-berita', da: 88, dr: 85, traffic: 20000000, price: 2500000, logo: 'https://images.unsplash.com/photo-1618005156198-d10103e0cd5e?w=80&auto=format&fit=crop&q=60' },
+    { name: 'Tech in Asia ID', domain: 'id.techinasia.com', categorySlug: 'teknologi-gadget', da: 78, dr: 76, traffic: 1500000, price: 2800000, logo: 'https://images.unsplash.com/photo-1618005128143-e5283b519a7f?w=80&auto=format&fit=crop&q=60' },
+    { name: 'DailySocial', domain: 'dailysocial.id', categorySlug: 'teknologi-gadget', da: 72, dr: 70, traffic: 800000, price: 1800000, logo: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=80&auto=format&fit=crop&q=60' },
+    { name: 'InfoKomputer', domain: 'infokomputer.grid.id', categorySlug: 'teknologi-gadget', da: 65, dr: 63, traffic: 300000, price: 1200000, logo: 'https://images.unsplash.com/photo-1618005131379-67d0f918e95d?w=80&auto=format&fit=crop&q=60' },
+    { name: 'Kontan.co.id', domain: 'kontan.co.id', categorySlug: 'bisnis-keuangan', da: 81, dr: 79, traffic: 4000000, price: 3200000, logo: 'https://images.unsplash.com/photo-1618005198143-e5283b519a7f?w=80&auto=format&fit=crop&q=60' },
+    { name: 'Bisnis.com', domain: 'bisnis.com', categorySlug: 'bisnis-keuangan', da: 83, dr: 81, traffic: 5000000, price: 3500000, logo: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=80&auto=format&fit=crop&q=60' },
+    { name: 'Sindonews', domain: 'sindonews.com', categorySlug: 'bisnis-keuangan', da: 84, dr: 82, traffic: 6000000, price: 2200000, logo: 'https://images.unsplash.com/photo-1618005131379-67d0f918e95d?w=80&auto=format&fit=crop&q=60' },
+    { name: 'KapanLagi.com', domain: 'kapanlagi.com', categorySlug: 'hiburan-gaya-hidup', da: 82, dr: 80, traffic: 9000000, price: 2600000, logo: 'https://images.unsplash.com/photo-1618005156198-d10103e0cd5e?w=80&auto=format&fit=crop&q=60' },
+    { name: 'Fimela.com', domain: 'fimela.com', categorySlug: 'hiburan-gaya-hidup', da: 79, dr: 77, traffic: 3500000, price: 2400000, logo: 'https://images.unsplash.com/photo-1618005198143-e5283b519a7f?w=80&auto=format&fit=crop&q=60' },
+    { name: 'Volix Media', domain: 'volix.co', categorySlug: 'hiburan-gaya-hidup', da: 45, dr: 40, traffic: 150000, price: 1500000, logo: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=80&auto=format&fit=crop&q=60' },
+  ];
+
+  for (const m of mediaItems) {
+    const data = {
+      logo: m.logo, name: m.name, domain: m.domain, categoryId: catBySlug[m.categorySlug],
+      da: m.da, dr: m.dr, traffic: m.traffic, price: m.price,
+    };
+    await prisma.media.upsert({ where: { id: m.domain }, update: data, create: { id: m.domain, ...data } });
+  }
+  console.log(`Upserted ${mediaItems.length} Media items.`);
+
+  // 4. Packages (no natural unique key — use deterministic id)
+  const packages = [
+    {
+      id: 'pkg-starter', name: 'Starter Package',
       description: 'Cocok untuk startup dan bisnis baru yang ingin mulai membangun branding dan reputasi di media digital.',
-      price: starterPrice,
-      discount: 10, // 10%
-      status: 'ACTIVE',
-      media: {
-        connect: starterMedia.map((m) => ({ id: m.id })),
-      },
+      price: 5000000, discount: 10, mediaDomains: mediaItems.slice(4, 7).map((m) => m.domain),
     },
-  });
-
-  // Professional Package: 6 media
-  const proMedia = dbMedia.slice(0, 6);
-  const proPrice = 12000000;
-  await prisma.package.create({
-    data: {
-      name: 'Professional Package',
+    {
+      id: 'pkg-professional', name: 'Professional Package',
       description: 'Publikasi luas di portal berita nasional terkemuka dan media teknologi untuk eksposur bisnis maksimal.',
-      price: proPrice,
-      discount: 15,
-      status: 'ACTIVE',
-      media: {
-        connect: proMedia.map((m) => ({ id: m.id })),
-      },
+      price: 12000000, discount: 15, mediaDomains: mediaItems.slice(0, 6).map((m) => m.domain),
     },
-  });
-
-  // Enterprise Package: 10 media
-  const enterpriseMedia = dbMedia.slice(0, 10);
-  const entPrice = 22000000;
-  await prisma.package.create({
-    data: {
-      name: 'Enterprise Package',
+    {
+      id: 'pkg-enterprise', name: 'Enterprise Package',
       description: 'Solusi terlengkap untuk korporasi dengan sebaran media nasional, bisnis, keuangan, dan gaya hidup terbesar.',
-      price: entPrice,
-      discount: 20,
-      status: 'ACTIVE',
-      media: {
-        connect: enterpriseMedia.map((m) => ({ id: m.id })),
+      price: 22000000, discount: 20, mediaDomains: mediaItems.slice(0, 10).map((m) => m.domain),
+    },
+  ];
+  for (const p of packages) {
+    const connect = p.mediaDomains.map((id) => ({ id }));
+    await prisma.package.upsert({
+      where: { id: p.id },
+      update: {
+        name: p.name, description: p.description, price: p.price, discount: p.discount,
+        status: 'ACTIVE', media: { set: connect },
       },
-    },
-  });
+      create: {
+        id: p.id, name: p.name, description: p.description, price: p.price, discount: p.discount,
+        status: 'ACTIVE', media: { connect },
+      },
+    });
+  }
+  console.log('Upserted Packages');
 
-  console.log('Created Packages');
+  // 5. Vouchers (unique: code)
+  const in30Days = new Date();
+  in30Days.setDate(in30Days.getDate() + 30);
+  const vouchers = [
+    { code: 'PRLAUNCH', type: 'PERCENT', value: 10, minSpend: 2000000, expiredAt: in30Days, status: 'ACTIVE' },
+    { code: 'PRCASHBACK', type: 'NOMINAL', value: 250000, minSpend: 5000000, expiredAt: in30Days, status: 'ACTIVE' },
+  ];
+  for (const v of vouchers) {
+    await prisma.voucher.upsert({ where: { code: v.code }, update: v, create: v });
+  }
+  console.log('Upserted Vouchers');
 
-  // 6. Create Vouchers
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 30);
-  await prisma.voucher.create({
-    data: {
-      code: 'PRLAUNCH',
-      type: 'PERCENT',
-      value: 10,
-      minSpend: 2000000,
-      expiredAt: tomorrow,
-      status: 'ACTIVE',
-    },
-  });
-
-  await prisma.voucher.create({
-    data: {
-      code: 'PRCASHBACK',
-      type: 'NOMINAL',
-      value: 250000,
-      minSpend: 5000000,
-      expiredAt: tomorrow,
-      status: 'ACTIVE',
-    },
-  });
-
-  console.log('Created Vouchers');
-
-  // 7. Create Testimonials
+  // 6. Testimonials (no natural unique key — deterministic id)
   const testimonials = [
-    { name: 'Diana Lestari', company: 'CEO StartupGo', content: 'Layanan press release yang sangat luar biasa. Artikel bisnis kami tayang di Detik dan Kompas dalam 2 hari saja. Traffic website kami naik drastis!', rating: 5, avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=60' },
-    { name: 'Rian Hidayat', company: 'Digital Marketing Manager FinTech ID', content: 'Harga transparan dan proses checkout yang sangat mudah. Kami bisa memilih media secara satuan sesuai target segmen kami. Rekomended sekali!', rating: 5, avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=60' },
-    { name: 'Siti Aminah', company: 'PR Specialist HijabStyle', content: 'Sangat terbantu dengan pengerjaannya yang cepat. Laporan link hasil tayang di-upload lengkap di dashboard admin. Proses revisi anchor text juga dilayani dengan baik.', rating: 4, avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=60' },
+    { id: 'tst-diana', name: 'Diana Lestari', company: 'CEO StartupGo', content: 'Layanan press release yang sangat luar biasa. Artikel bisnis kami tayang di Detik dan Kompas dalam 2 hari saja. Traffic website kami naik drastis!', rating: 5, avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=60' },
+    { id: 'tst-rian', name: 'Rian Hidayat', company: 'Digital Marketing Manager FinTech ID', content: 'Harga transparan dan proses checkout yang sangat mudah. Kami bisa memilih media secara satuan sesuai target segmen kami. Rekomended sekali!', rating: 5, avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=60' },
+    { id: 'tst-siti', name: 'Siti Aminah', company: 'PR Specialist HijabStyle', content: 'Sangat terbantu dengan pengerjaannya yang cepat. Laporan link hasil tayang di-upload lengkap di dashboard admin. Proses revisi anchor text juga dilayani dengan baik.', rating: 4, avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=60' },
   ];
-
   for (const t of testimonials) {
-    await prisma.testimonial.create({ data: t });
+    const { id, ...rest } = t;
+    await prisma.testimonial.upsert({ where: { id }, update: rest, create: t });
   }
+  console.log('Upserted Testimonials');
 
-  console.log('Created Testimonials');
-
-  // 8. Create FAQs
+  // 7. FAQs (no natural unique key — deterministic id)
   const faqs = [
-    { question: 'Berapa lama waktu pengerjaan publikasi?', answer: 'Waktu pengerjaan berkisar antara 1 hingga 3 hari kerja setelah materi artikel disetujui dan pembayaran dikonfirmasi.' },
-    { question: 'Apakah artikel yang diterbitkan bersifat permanen?', answer: 'Ya, seluruh artikel press release yang diterbitkan di media mitra kami bersifat permanen dan tidak akan dihapus.' },
-    { question: 'Apakah saya bisa mengirimkan artikel yang sudah jadi?', answer: 'Tentu saja. Anda bisa mengunggah draf artikel Anda saat melakukan checkout. Tim kami akan melakukan review singkat sebelum dikirimkan ke redaksi media.' },
-    { question: 'Bagaimana jika artikel ditolak oleh pihak media?', answer: 'Jika ada penolakan dari pihak media (karena melanggar kebijakan konten mereka), kami akan menawarkan media pengganti yang setara atau melakukan refund 100% untuk media tersebut.' },
-    { question: 'Apakah ada jaminan artikel terindeks Google?', answer: 'Hampir seluruh media nasional mitra kami memiliki kredibilitas tinggi, sehingga artikel Anda dijamin cepat terindeks di halaman pencarian Google.' },
+    { id: 'faq-durasi', question: 'Berapa lama waktu pengerjaan publikasi?', answer: 'Waktu pengerjaan berkisar antara 1 hingga 3 hari kerja setelah materi artikel disetujui dan pembayaran dikonfirmasi.' },
+    { id: 'faq-permanen', question: 'Apakah artikel yang diterbitkan bersifat permanen?', answer: 'Ya, seluruh artikel press release yang diterbitkan di media mitra kami bersifat permanen dan tidak akan dihapus.' },
+    { id: 'faq-kirim-artikel', question: 'Apakah saya bisa mengirimkan artikel yang sudah jadi?', answer: 'Tentu saja. Anda bisa mengunggah draf artikel Anda saat melakukan checkout. Tim kami akan melakukan review singkat sebelum dikirimkan ke redaksi media.' },
+    { id: 'faq-ditolak', question: 'Bagaimana jika artikel ditolak oleh pihak media?', answer: 'Jika ada penolakan dari pihak media (karena melanggar kebijakan konten mereka), kami akan menawarkan media pengganti yang setara atau melakukan refund 100% untuk media tersebut.' },
+    { id: 'faq-indeks', question: 'Apakah ada jaminan artikel terindeks Google?', answer: 'Hampir seluruh media nasional mitra kami memiliki kredibilitas tinggi, sehingga artikel Anda dijamin cepat terindeks di halaman pencarian Google.' },
   ];
-
   for (const f of faqs) {
-    await prisma.faq.create({ data: f });
+    const { id, ...rest } = f;
+    await prisma.faq.upsert({ where: { id }, update: rest, create: f });
   }
+  console.log('Upserted FAQs');
 
-  console.log('Created FAQs');
-
-  // 9. Create Settings
+  // 8. Settings (unique: key)
   const settings = [
     { key: 'site_title', value: 'Axiom Press Release - Jasa Distribusi Press Release Premium' },
     { key: 'meta_description', value: 'Publikasikan artikel bisnis Anda ke 1000+ media online nasional dan lokal terbaik untuk meningkatkan kredibilitas, brand awareness, dan SEO secara cepat.' },
@@ -231,14 +170,12 @@ async function main() {
     { key: 'footer_description', value: 'Jasa Distribusi Press Release premium terpercaya di Indonesia. Dapatkan jaminan tayang permanen di media online nasional utama.' },
     { key: 'contact_address', value: 'Sudirman Central Business District (SCBD), Jakarta Selatan' },
   ];
-
   for (const s of settings) {
-    await prisma.setting.create({ data: { key: s.key, value: s.value } });
+    await prisma.setting.upsert({ where: { key: s.key }, update: { value: s.value }, create: s });
   }
+  console.log('Upserted Settings');
 
-  console.log('Created Settings');
-
-  // 10. Create Blog Posts
+  // 9. Blog posts (unique: slug)
   const blogs = [
     {
       title: 'Pentingnya Press Release untuk Meningkatkan Kredibilitas Bisnis Baru',
@@ -261,101 +198,51 @@ async function main() {
       seoDesc: 'Panduan lengkap menulis press release agar dilirik redaksi media. Menggunakan formula 5W+1H dan kutipan yang bernilai berita tinggi.',
     },
   ];
-
   for (const b of blogs) {
-    await prisma.blog.create({ data: b });
+    await prisma.blog.upsert({ where: { slug: b.slug }, update: b, create: b });
   }
+  console.log('Upserted Blog Posts');
 
-  console.log('Created Blog Posts');
-
-  // 11. Create a Seed Order for Budi
-  const customerBudi = await prisma.customer.create({
-    data: {
-      name: 'Budi Santoso',
-      email: 'budi@gmail.com',
-      whatsapp: '628999999999',
-      totalOrders: 1,
-      totalSpend: 3000000,
-    },
-  });
-
-  const orderBudi = await prisma.order.create({
-    data: {
-      customerId: customerBudi.id,
-      userId: user.id,
-      brandName: 'HijabModern',
-      anchorText: 'Hijab Modern Murah',
-      url: 'https://hijabmodern.com',
-      notes: 'Harap publish di kategori gaya hidup/lifestyle.',
-      status: 'PUBLISHED',
-      paymentMethod: 'QRIS',
-      subtotal: 3000000,
-      discount: 0,
-      total: 3000000,
-      proofPath: '/uploads/proofs/sample-proof.png',
-      publishProofUrl: 'https://kapanlagi.com/gaya-hidup/tren-hijab-modern-2026',
-      items: {
-        create: [
-          {
-            mediaId: dbMedia.find((m) => m.domain === 'kapanlagi.com')?.id,
-            price: 3000000,
-          },
-        ],
-      },
-    },
-  });
-
-  await prisma.payment.create({
-    data: {
-      orderId: orderBudi.id,
-      amount: 3000000,
-      method: 'QRIS',
-      proofPath: '/uploads/proofs/sample-proof.png',
-      status: 'APPROVED',
-      paidAt: new Date(),
-    },
-  });
-
-  console.log('Created Sample Order for Budi');
-
-  // 12. Create Backlinks
+  // 10. Backlinks (no natural unique key — use domain as deterministic id)
   const backlinks = [
-    {
-      logo: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=80&auto=format&fit=crop&q=60',
-      name: 'Axiom Tech Blog',
-      domain: 'axiomtech.com',
-      da: 45,
-      dr: 42,
-      traffic: 25000,
-      price: 450000,
-      notes: 'Cocok untuk niche teknologi, startup, IT, dan gadgets.',
-    },
-    {
-      logo: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=80&auto=format&fit=crop&q=60',
-      name: 'Finance & Bisnis Journal',
-      domain: 'financejournal.id',
-      da: 38,
-      dr: 35,
-      traffic: 18000,
-      price: 350000,
-      notes: 'Sangat baik untuk backlink fintech, investasi, bisnis, dan UKM.',
-    },
-    {
-      logo: 'https://images.unsplash.com/photo-1511556532299-8f662fc26c06?w=80&auto=format&fit=crop&q=60',
-      name: 'Lifestyle & Gaya Hidup',
-      domain: 'indolifestyle.co.id',
-      da: 35,
-      dr: 30,
-      traffic: 30000,
-      price: 250000,
-      notes: 'Niche fashion, kuliner, pariwisata, kecantikan, dan parenting.',
-    },
+    { domain: 'axiomtech.com', name: 'Axiom Tech Blog', logo: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=80&auto=format&fit=crop&q=60', da: 45, dr: 42, traffic: 25000, price: 450000, notes: 'Cocok untuk niche teknologi, startup, IT, dan gadgets.' },
+    { domain: 'financejournal.id', name: 'Finance & Bisnis Journal', logo: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=80&auto=format&fit=crop&q=60', da: 38, dr: 35, traffic: 18000, price: 350000, notes: 'Sangat baik untuk backlink fintech, investasi, bisnis, dan UKM.' },
+    { domain: 'indolifestyle.co.id', name: 'Lifestyle & Gaya Hidup', logo: 'https://images.unsplash.com/photo-1511556532299-8f662fc26c06?w=80&auto=format&fit=crop&q=60', da: 35, dr: 30, traffic: 30000, price: 250000, notes: 'Niche fashion, kuliner, pariwisata, kecantikan, dan parenting.' },
   ];
-
   for (const bl of backlinks) {
-    await prisma.backlink.create({ data: bl });
+    await prisma.backlink.upsert({ where: { id: bl.domain }, update: bl, create: { id: bl.domain, ...bl } });
   }
-  console.log('Created Backlinks');
+  console.log('Upserted Backlinks');
+
+  // 11. Sample order for Budi (deterministic ids so re-seeding is idempotent)
+  const customerBudi = await prisma.customer.upsert({
+    where: { email: 'budi@gmail.com' },
+    update: { name: 'Budi Santoso', whatsapp: '628999999999', totalOrders: 1, totalSpend: 3000000 },
+    create: { name: 'Budi Santoso', email: 'budi@gmail.com', whatsapp: '628999999999', totalOrders: 1, totalSpend: 3000000 },
+  });
+
+  const orderData = {
+    customerId: customerBudi.id, userId: user.id, brandName: 'HijabModern',
+    anchorText: 'Hijab Modern Murah', url: 'https://hijabmodern.com',
+    notes: 'Harap publish di kategori gaya hidup/lifestyle.', status: 'PUBLISHED',
+    paymentMethod: 'QRIS', subtotal: 3000000, discount: 0, total: 3000000,
+    proofPath: '/uploads/proofs/sample-proof.png',
+    publishProofUrl: 'https://kapanlagi.com/gaya-hidup/tren-hijab-modern-2026',
+  };
+  await prisma.order.upsert({ where: { id: 'order-budi-sample' }, update: orderData, create: { id: 'order-budi-sample', ...orderData } });
+
+  await prisma.orderItem.upsert({
+    where: { id: 'item-budi-kapanlagi' },
+    update: { orderId: 'order-budi-sample', mediaId: 'kapanlagi.com', price: 3000000 },
+    create: { id: 'item-budi-kapanlagi', orderId: 'order-budi-sample', mediaId: 'kapanlagi.com', price: 3000000 },
+  });
+
+  await prisma.payment.upsert({
+    where: { orderId: 'order-budi-sample' },
+    update: { amount: 3000000, method: 'QRIS', proofPath: '/uploads/proofs/sample-proof.png', status: 'APPROVED', paidAt: new Date() },
+    create: { orderId: 'order-budi-sample', amount: 3000000, method: 'QRIS', proofPath: '/uploads/proofs/sample-proof.png', status: 'APPROVED', paidAt: new Date() },
+  });
+  console.log('Upserted Sample Order for Budi');
 
   console.log('Database seeding completed successfully!');
 }

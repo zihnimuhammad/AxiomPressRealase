@@ -126,7 +126,7 @@ function LoginForm() {
         </button>
       </form>
 
-      {/* Quick evaluation accounts */}
+      {process.env.NODE_ENV !== 'production' && (
       <div className="border-t border-slate-100 dark:border-slate-800/80 pt-5 space-y-3">
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center flex items-center justify-center gap-1">
           <KeyRound className="h-3 w-3 text-blue-500" />
@@ -149,6 +149,7 @@ function LoginForm() {
           </button>
         </div>
       </div>
+      )}
     </div>
   );
 }

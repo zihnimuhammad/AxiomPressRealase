@@ -33,7 +33,7 @@ export default function AdminDashboard() {
   }, [session, status, router]);
 
   // View tabs
-  const [activeTab, setActiveTab] = useState<'overview' | 'media' | 'packages' | 'orders' | 'customers' | 'vouchers' | 'blogs' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'media' | 'packages' | 'orders' | 'customers' | 'vouchers' | 'blogs' | 'backlinks' | 'testimonials' | 'settings'>('overview');
 
   // Main CRUD states
   const [mediaList, setMediaList] = useState<any[]>([]);
@@ -395,6 +395,59 @@ export default function AdminDashboard() {
       });
 
       doc.save('Daftar_Mitra_Media_AxiomPR.pdf');
+    }
+  };
+
+  const handleExportBacklinks = (type: 'excel' | 'csv' | 'pdf') => {
+    const cleanData = backlinksList.map(b => ({
+      Nama: b.name,
+      Domain: b.domain,
+      DA: b.da,
+      DR: b.dr,
+      Trafik: b.traffic,
+      Harga: b.price,
+      Catatan: b.notes ?? ''
+    }));
+
+    if (type === 'excel') {
+      const ws = XLSX.utils.json_to_sheet(cleanData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Backlinks');
+      XLSX.writeFile(wb, 'Backlinks_AxiomPR.xlsx');
+    } else if (type === 'csv') {
+      const ws = XLSX.utils.json_to_sheet(cleanData);
+      const csv = XLSX.utils.sheet_to_csv(ws);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.setAttribute("download", "Backlinks_AxiomPR.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else if (type === 'pdf') {
+      const doc = new jsPDF();
+      doc.setFontSize(16);
+      doc.text('Daftar Backlink - Axiom Press Release', 14, 20);
+
+      const headers = [['Nama', 'Domain', 'DA', 'DR', 'Estimasi Trafik', 'Harga']];
+      const rows = backlinksList.map(b => [
+        b.name,
+        b.domain,
+        b.da?.toString() ?? '',
+        b.dr?.toString() ?? '',
+        new Intl.NumberFormat('id-ID').format(b.traffic ?? 0),
+        new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(b.price ?? 0)
+      ]);
+
+      autoTable(doc, {
+        startY: 25,
+        head: headers,
+        body: rows,
+        theme: 'striped',
+        headStyles: { fillColor: [37, 99, 235] },
+      });
+
+      doc.save('Daftar_Backlink_AxiomPR.pdf');
     }
   };
 

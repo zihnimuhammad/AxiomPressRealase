@@ -50,7 +50,7 @@ export async function GET() {
     // Calculate last 6 months sales
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
     const today = new Date();
-    const last6Months = [];
+    const last6Months: { label: string; key: string; val: number }[] = [];
 
     for (let i = 5; i >= 0; i--) {
       const d = new Date(today.getFullYear(), today.getMonth() - i, 1);

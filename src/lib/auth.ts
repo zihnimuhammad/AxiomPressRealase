@@ -1,11 +1,7 @@
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { db } from './db';
-import { createHash } from 'crypto';
-
-function hashPassword(password: string) {
-  return createHash('sha256').update(password).digest('hex');
-}
+import bcrypt from 'bcryptjs';
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -28,8 +24,8 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Email tidak terdaftar');
         }
 
-        const hashedPassword = hashPassword(credentials.password);
-        if (user.password !== hashedPassword) {
+        const valid = await bcrypt.compare(credentials.password, user.password);
+        if (!valid) {
           throw new Error('Password salah');
         }
 
